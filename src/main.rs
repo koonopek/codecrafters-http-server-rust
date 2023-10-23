@@ -16,8 +16,8 @@ fn main() {
                 // stream.write_all(ok_response.as_bytes()).unwrap();
 
                 let response = "HTTP/1.1 200 OK\r\n\r\n";
-
                 stream.write_all(response.as_bytes()).unwrap();
+
                 println!("accepted new connection");
             }
             Err(e) => {
