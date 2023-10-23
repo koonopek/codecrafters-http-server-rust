@@ -14,6 +14,7 @@ fn main() {
             Ok(mut stream) => {
                 let ok_response = "HTTP/1.1 200 OK\r\n\r\n";
                 stream.write_all(ok_response.as_bytes()).unwrap();
+                println!("send response");
             }
             Err(e) => {
                 println!("error: {}", e);
