@@ -12,8 +12,8 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                let ok_response = String::from("HTTP/1.1 200 OK\r\n\r\n");
-                stream.write_all(ok_response.as_bytes()).unwrap();
+                let ok_response = b"HTTP/1.1 200 OK\r\n\r\n";
+                stream.write_all(ok_response).unwrap();
                 stream.flush().unwrap();
                 println!("accepted new connection");
             }
