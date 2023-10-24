@@ -30,7 +30,7 @@ fn main() {
                     stream.write(OK_RESPONSE).unwrap();
                 } else if path.starts_with("/echo") {
                     stream
-                        .write_all(ok_response(&path[5..]).as_bytes())
+                        .write_all(ok_response(&path[6..]).as_bytes())
                         .unwrap();
                 } else {
                     stream.write_all(NOT_FOUND_RESPONSE).unwrap();
