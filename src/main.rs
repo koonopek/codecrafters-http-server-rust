@@ -29,8 +29,8 @@ fn main() {
                 if path == "/" {
                     stream.write(OK_RESPONSE).unwrap();
                 } else if path.starts_with("/echo") {
-                    let input = match path.split("/").nth(2) {
-                        Some(input) => input,
+                    let input = match path.split_once("/") {
+                        Some((_, input)) => input,
                         None => panic!("Failed to get input from path"),
                     };
                     stream.write_all(ok_response(input).as_bytes()).unwrap();
