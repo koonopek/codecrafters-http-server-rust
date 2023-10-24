@@ -3,7 +3,7 @@ use std::{
     net::TcpListener,
 };
 
-use nom::AsBytes;
+use nom::{AsBytes, Slice};
 
 const OK_RESPONSE: &[u8; 19] = b"HTTP/1.1 200 OK\r\n\r\n";
 const NOT_FOUND_RESPONSE: &[u8; 26] = b"HTTP/1.1 404 Not Found\r\n\r\n";
@@ -29,14 +29,9 @@ fn main() {
                 if path == "/" {
                     stream.write(OK_RESPONSE).unwrap();
                 } else if path.starts_with("/echo") {
-                    let input = match path.split_once("/") {
-                        Some((_, input)) => {
-                            println!("input: {input}");
-                            input
-                        }
-                        None => panic!("Failed to get input from path"),
-                    };
-                    stream.write_all(ok_response(input).as_bytes()).unwrap();
+                    stream
+                        .write_all(ok_response(&path[5..]).as_bytes())
+                        .unwrap();
                 } else {
                     stream.write_all(NOT_FOUND_RESPONSE).unwrap();
                 }
