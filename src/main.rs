@@ -3,8 +3,10 @@ use std::{
     net::TcpListener,
 };
 
-const ok_response: &[u8; 19] = b"HTTP/1.1 200 OK\r\n\r\n";
-const not_found_response: &[u8; 26] = b"HTTP/1.1 404 Not Found\r\n\r\n";
+use nom::AsBytes;
+
+const OK_RESPONSE: &[u8; 19] = b"HTTP/1.1 200 OK\r\n\r\n";
+const NOT_FOUND_RESPONSE: &[u8; 26] = b"HTTP/1.1 404 Not Found\r\n\r\n";
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
@@ -24,11 +26,12 @@ fn main() {
 
                 let path = get_path(&http_request).unwrap();
 
-                if path == "/" {
-                    stream.write_all(ok_response).unwrap();
-                } else {
-                    stream.write_all(not_found_response).unwrap();
-                }
+                let input = match path.split("/").nth(2) {
+                    Some(input) => input,
+                    None => panic!("Failed to get input from path"),
+                };
+
+                stream.write_all(ok_response(input).as_bytes()).unwrap();
             }
             Err(e) => {
                 println!("error: {}", e);
@@ -53,4 +56,16 @@ fn get_path(http_request: &Vec<String>) -> Option<String> {
             panic!("Wrongly formatted http request")
         }
     };
+}
+
+fn ok_response(body: &str) -> Vec<u8> {
+    let mut response = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n".to_vec();
+    let content_length = body.len();
+
+    let content_length_header = format!("Content-Length: {content_length}\r\n\r\n");
+    response.extend_from_slice(content_length_header.as_bytes());
+
+    response.extend_from_slice(body.as_bytes());
+
+    response
 }
