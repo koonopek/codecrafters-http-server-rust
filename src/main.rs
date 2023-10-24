@@ -26,12 +26,17 @@ fn main() {
 
                 let path = get_path(&http_request).unwrap();
 
-                let input = match path.split("/").nth(2) {
-                    Some(input) => input,
-                    None => panic!("Failed to get input from path"),
-                };
-
-                stream.write_all(ok_response(input).as_bytes()).unwrap();
+                if path == "/" {
+                    stream.write(OK_RESPONSE).unwrap();
+                } else if path.starts_with("/echo") {
+                    let input = match path.split("/").nth(2) {
+                        Some(input) => input,
+                        None => panic!("Failed to get input from path"),
+                    };
+                    stream.write_all(ok_response(input).as_bytes()).unwrap();
+                } else {
+                    stream.write_all(NOT_FOUND_RESPONSE).unwrap();
+                }
             }
             Err(e) => {
                 println!("error: {}", e);
