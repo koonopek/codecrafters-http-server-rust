@@ -94,6 +94,7 @@ fn parse_path(first_line: Option<&String>) -> Result<String, Result<HttpRequest,
         }
         None => return Err(Err("Wrongly formatted http request. Missing first line.")),
     };
+
     Ok(path)
 }
 
