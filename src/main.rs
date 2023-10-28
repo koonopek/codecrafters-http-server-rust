@@ -66,7 +66,7 @@ fn parse_request(http_request_lines: &Vec<String>) -> Result<HttpRequest, &str> 
 
     for line in http_request_lines.iter().skip(1) {
         let (name, value) = match line.split_once(":") {
-            Some((name, value)) => (name, value),
+            Some((name, value)) => (name, value.trim()),
             None => return Err("Wrongly formatted http request. Header is missing ':'"),
         };
 
