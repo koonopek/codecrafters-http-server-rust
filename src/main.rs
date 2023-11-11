@@ -4,6 +4,7 @@ use std::{
     net::TcpListener,
 };
 
+use http_server_starter_rust::ThreadPool;
 use nom::AsBytes;
 
 const OK_RESPONSE: &[u8; 19] = b"HTTP/1.1 200 OK\r\n\r\n";
@@ -12,42 +13,46 @@ const NOT_FOUND_RESPONSE: &[u8; 26] = b"HTTP/1.1 404 Not Found\r\n\r\n";
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
 
+    let thread_pool = ThreadPool::new(4);
+
     for stream in listener.incoming() {
-        match stream {
-            Ok(mut stream) => {
-                println!("accepted new connection");
+        let stream = stream.unwrap();
+        thread_pool
+            .run(Box::new(|| handle_connection(stream)))
+            .unwrap();
+        println!("dispatched request")
+    }
+}
 
-                let request_buffer = BufReader::new(&stream);
+fn handle_connection(mut stream: std::net::TcpStream) {
+    println!("accepted new connection");
 
-                let http_request_lines: Vec<_> = request_buffer
-                    .lines()
-                    .map(|line| line.unwrap())
-                    .take_while(|line| !line.is_empty())
-                    .collect(); // we are not collecting body yet
+    let request_buffer = BufReader::new(&stream);
 
-                let http_request = parse_request(&http_request_lines).unwrap();
+    let http_request_lines: Vec<_> = request_buffer
+        .lines()
+        .map(|line| line.unwrap())
+        .take_while(|line| !line.is_empty())
+        .collect();
+    // we are not collecting body yet
 
-                if http_request.path == "/" {
-                    stream.write(OK_RESPONSE).unwrap();
-                } else if http_request.path.starts_with("/user-agent")
-                    && http_request.headers.contains_key("User-Agent")
-                {
-                    let user_agent = http_request.headers.get("User-Agent").unwrap().as_str();
-                    stream
-                        .write_all(ok_response(user_agent).as_bytes())
-                        .unwrap();
-                } else if http_request.path.starts_with("/echo") {
-                    stream
-                        .write_all(ok_response(&&http_request.path[6..]).as_bytes())
-                        .unwrap();
-                } else {
-                    stream.write_all(NOT_FOUND_RESPONSE).unwrap();
-                }
-            }
-            Err(e) => {
-                println!("error: {}", e);
-            }
-        }
+    let http_request = parse_request(&http_request_lines).unwrap();
+
+    if http_request.path == "/" {
+        stream.write(OK_RESPONSE).unwrap();
+    } else if http_request.path.starts_with("/user-agent")
+        && http_request.headers.contains_key("User-Agent")
+    {
+        let user_agent = http_request.headers.get("User-Agent").unwrap().as_str();
+        stream
+            .write_all(ok_response(user_agent).as_bytes())
+            .unwrap();
+    } else if http_request.path.starts_with("/echo") {
+        stream
+            .write_all(ok_response(&&http_request.path[6..]).as_bytes())
+            .unwrap();
+    } else {
+        stream.write_all(NOT_FOUND_RESPONSE).unwrap();
     }
 }
 
