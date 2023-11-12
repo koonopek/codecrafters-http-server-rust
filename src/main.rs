@@ -7,6 +7,7 @@ use std::{
 };
 
 use http_server_starter_rust::ThreadPool;
+use itertools::Itertools;
 use nom::AsBytes;
 
 const OK_RESPONSE: &[u8; 19] = b"HTTP/1.1 200 OK\r\n\r\n";
@@ -132,8 +133,9 @@ fn ok_text_response(body: &str) -> Vec<u8> {
 fn serve_file(mut stream: TcpStream, file_path: &Path) {
     match fs::read(file_path) {
         Ok(mut file_content) => {
-            let mut response = OK_RESPONSE.to_vec();
             let len = file_content.len();
+            let mut response = Vec::with_capacity(len + 1024);
+            response.extend(b"HTTP/1.1 200 OK\r\n");
             response.extend(format!("Content-Type: application/octet-stream\r\n").as_bytes());
             response.extend(format!("Content-Length: {len}\r\n\r\n").as_bytes());
             response.append(&mut file_content);
