@@ -1,16 +1,16 @@
 use std::{
     collections::HashMap,
     fs,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Read, Write},
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
 };
 
 use http_server_starter_rust::ThreadPool;
-use itertools::Itertools;
 use nom::AsBytes;
 
 const OK_RESPONSE: &[u8; 19] = b"HTTP/1.1 200 OK\r\n\r\n";
+const OK_RESPONSE_201: &[u8; 19] = b"HTTP/1.1 201 OK\r\n\r\n";
 const NOT_FOUND_RESPONSE: &[u8; 26] = b"HTTP/1.1 404 Not Found\r\n\r\n";
 
 fn main() {
@@ -37,9 +37,10 @@ fn main() {
 fn handle_connection(mut stream: std::net::TcpStream, base_dir: &str) {
     println!("accepted new connection");
 
-    let request_buffer = BufReader::new(&stream);
+    let mut request_buffer = BufReader::new(&stream);
 
     let http_request_lines: Vec<_> = request_buffer
+        .by_ref()
         .lines()
         .map(|line| line.unwrap())
         .take_while(|line| !line.is_empty())
@@ -60,27 +61,48 @@ fn handle_connection(mut stream: std::net::TcpStream, base_dir: &str) {
         stream
             .write_all(ok_text_response(&&http_request.path[6..]).as_bytes())
             .unwrap();
-    } else if http_request.path.starts_with("/files/") {
+    } else if http_request.path.starts_with("/files/") && http_request.method == "GET" {
         let file = http_request.path.split("/").last().unwrap_or("");
         let mut path = PathBuf::new();
         path.push(base_dir);
         path.push(file);
         serve_file(stream, &path)
+    } else if http_request.path.starts_with("/files/") && http_request.method == "POST" {
+        let content_length: usize = http_request
+            .headers
+            .get("Content-Length")
+            .unwrap_or(&String::from("10"))
+            .parse()
+            .unwrap();
+
+        let mut body = vec![0; content_length];
+        request_buffer.read_exact(&mut body).unwrap();
+
+        let file = http_request.path.split("/").last().unwrap_or("");
+        let mut path = PathBuf::new();
+        path.push(base_dir);
+        path.push(file);
+
+        fs::write(path, body).unwrap();
+
+        stream.write_all(OK_RESPONSE_201).unwrap();
     } else {
         stream.write_all(NOT_FOUND_RESPONSE).unwrap();
     }
 }
 
+#[derive(Debug)]
 struct HttpRequest {
     path: String,
     headers: HashMap<String, String>,
+    method: String,
 }
 
 fn parse_request(http_request_lines: &Vec<String>) -> Result<HttpRequest, &str> {
-    let path = match parse_path(http_request_lines.get(0)) {
-        Ok(value) => value,
-        Err(value) => return value,
-    };
+    let first_line = http_request_lines
+        .get(0)
+        .expect("Missing first line in http_request");
+    let (method, path, _) = parse_first_line(first_line).unwrap();
 
     let mut headers: HashMap<String, String> = HashMap::new();
 
@@ -93,29 +115,26 @@ fn parse_request(http_request_lines: &Vec<String>) -> Result<HttpRequest, &str> 
         headers.insert(name.to_string(), value.to_string());
     }
 
-    return Ok(HttpRequest { path, headers });
+    return Ok(HttpRequest {
+        path,
+        headers,
+        method,
+    });
 }
 
-fn parse_path(first_line: Option<&String>) -> Result<String, Result<HttpRequest, &str>> {
-    let path = match first_line {
-        Some(first_line) => {
-            let first_line_splitted = first_line.split_ascii_whitespace().collect::<Vec<_>>();
+fn parse_first_line(first_line: &String) -> Result<(String, String, String), &str> {
+    let first_line_splitted = first_line.split_ascii_whitespace().collect::<Vec<_>>();
 
-            let maybe_path = first_line_splitted.get(1);
-
-            match maybe_path.map(|s| s.to_string()) {
-                Some(path) => path,
-                None => {
-                    return Err(Err(
-                        "Wrongly formatted http request. Failed to convert path to string.",
-                    ))
-                }
-            }
+    match (
+        first_line_splitted.get(0),
+        first_line_splitted.get(1),
+        first_line_splitted.get(2),
+    ) {
+        (Some(method), Some(path), Some(protocol)) => {
+            Ok((method.to_string(), path.to_string(), protocol.to_string()))
         }
-        None => return Err(Err("Wrongly formatted http request. Missing first line.")),
-    };
-
-    Ok(path)
+        _ => Err("Wrongly formatted first line of http request"),
+    }
 }
 
 fn ok_text_response(body: &str) -> Vec<u8> {
