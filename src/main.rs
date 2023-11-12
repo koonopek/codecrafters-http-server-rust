@@ -1,5 +1,4 @@
 use std::{
-    borrow::BorrowMut,
     collections::HashMap,
     fs,
     io::{BufRead, BufReader, Write},
@@ -141,7 +140,7 @@ fn serve_file(mut stream: TcpStream, file_path: &Path) {
             stream.write_all(&response).unwrap();
         }
         Err(_) => {
-            stream.write_all(NOT_FOUND_RESPONSE);
+            stream.write_all(NOT_FOUND_RESPONSE).unwrap();
         }
     }
 }

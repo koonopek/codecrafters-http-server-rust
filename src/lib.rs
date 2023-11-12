@@ -3,13 +3,12 @@ use std::{
         mpsc::{Receiver, Sender},
         *,
     },
-    thread::{self, JoinHandle},
+    thread::{self},
 };
 
 use itertools::Itertools;
 
 pub struct ThreadPool {
-    threads: Vec<Worker>,
     sender: Sender<Job>,
 }
 
@@ -19,10 +18,10 @@ impl ThreadPool {
     pub fn new(threads: usize) -> ThreadPool {
         let (sender, receiver_raw) = mpsc::channel::<Job>();
         let receiver = Arc::new(Mutex::new(receiver_raw));
-        let threads = (0..threads)
+        (0..threads)
             .map(|id| Worker::new(id, Arc::clone(&receiver)))
             .collect_vec();
-        ThreadPool { threads, sender }
+        ThreadPool { sender }
     }
 
     pub fn run(&self, job: Job) -> Result<(), mpsc::SendError<Job>> {
@@ -30,14 +29,11 @@ impl ThreadPool {
     }
 }
 
-struct Worker {
-    id: usize,
-    thread_handle: JoinHandle<()>,
-}
+struct Worker {}
 
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<Receiver<Job>>>) -> Worker {
-        let thread_handle = thread::spawn(move || loop {
+        thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv();
 
             match message {
@@ -51,6 +47,6 @@ impl Worker {
                 }
             };
         });
-        Worker { id, thread_handle }
+        Worker {}
     }
 }
